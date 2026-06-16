@@ -1,52 +1,51 @@
 // api/sync.js
 const crypto = require('crypto');
+const { createClient } = require('redis');
 
-// Helper function to call Vercel KV REST API using native fetch
+// Helper function to execute Redis commands (supports REST fetch for Vercel KV and TCP client for standard Redis)
 async function callKV(commandArray) {
     let url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
     let token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-    // Diagnostic logging to see available environment variables in Vercel logs
-    console.log("[KV Info] Available env keys:", Object.keys(process.env).filter(k => k.includes("KV") || k.includes("REDIS")));
+    // 1. Optimal mode: use HTTP REST fetch if REST URL is available (for Vercel KV / Upstash REST)
+    if (url && token) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(commandArray)
+            });
 
-    if (!url || !token) {
-        // Fallback: Parse REDIS_URL if available (for marketplace Redis integrations)
-        const redisUrl = process.env.REDIS_URL;
-        if (redisUrl) {
-            try {
-                const parsedUrl = new URL(redisUrl);
-                url = `https://${parsedUrl.hostname}`;
-                token = parsedUrl.password || parsedUrl.username;
-            } catch (e) {
-                console.error("Failed to parse REDIS_URL:", e);
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`KV API Error (${response.status}): ${errText}`);
             }
+
+            const data = await response.json();
+            return data.result;
+        } catch (err) {
+            throw new Error(`Failed to fetch KV REST endpoint (${url}): ${err.message}`);
         }
     }
 
-    if (!url || !token) {
-        throw new Error("Vercel KV environment variables (or REDIS_URL) are not configured in this deployment.");
-    }
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(commandArray)
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`KV API Error (${response.status}): ${errText}`);
+    // 2. Fallback mode: use standard TCP client if only REDIS_URL is available (for standard Redis Cloud / self-hosted Redis)
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl) {
+        const client = createClient({ url: redisUrl });
+        client.on('error', (err) => console.error('Redis Client Error', err));
+        await client.connect();
+        try {
+            const result = await client.sendCommand(commandArray);
+            return result;
+        } finally {
+            await client.quit();
         }
-
-        const data = await response.json();
-        return data.result;
-    } catch (err) {
-        throw new Error(`Failed to fetch KV REST endpoint (${url}): ${err.message}`);
     }
+
+    throw new Error("No database credentials (KV_REST_API_URL or REDIS_URL) are configured in this deployment.");
 }
 
 // Simple SHA-256 hash helper

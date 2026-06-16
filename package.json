@@ -1,0 +1,9 @@
+{
+  "name": "personal-planner",
+  "version": "1.0.0",
+  "description": "Aura Planner with standard TCP Redis Cloud backend support",
+  "main": "api/sync.js",
+  "dependencies": {
+    "redis": "^4.6.10"
+  }
+}
