@@ -3,8 +3,11 @@ const crypto = require('crypto');
 
 // Helper function to call Vercel KV REST API using native fetch
 async function callKV(commandArray) {
-    let url = process.env.KV_REST_API_URL;
-    let token = process.env.KV_REST_API_TOKEN;
+    let url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    let token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    // Diagnostic logging to see available environment variables in Vercel logs
+    console.log("[KV Info] Available env keys:", Object.keys(process.env).filter(k => k.includes("KV") || k.includes("REDIS")));
 
     if (!url || !token) {
         // Fallback: Parse REDIS_URL if available (for marketplace Redis integrations)
@@ -24,22 +27,26 @@ async function callKV(commandArray) {
         throw new Error("Vercel KV environment variables (or REDIS_URL) are not configured in this deployment.");
     }
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(commandArray)
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(commandArray)
+        });
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`KV API Error (${response.status}): ${errText}`);
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`KV API Error (${response.status}): ${errText}`);
+        }
+
+        const data = await response.json();
+        return data.result;
+    } catch (err) {
+        throw new Error(`Failed to fetch KV REST endpoint (${url}): ${err.message}`);
     }
-
-    const data = await response.json();
-    return data.result;
 }
 
 // Simple SHA-256 hash helper
