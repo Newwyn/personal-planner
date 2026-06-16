@@ -22,6 +22,43 @@
 </head>
 <body>
 
+    <!-- ================= 0. GLASSMORPHIC LOGIN OVERLAY ================= -->
+    <div id="auth-overlay" class="auth-overlay-container">
+        <div class="auth-card glass-panel">
+            <div class="auth-logo-section">
+                <i class="fa-solid fa-wand-magic-sparkles auth-logo-icon"></i>
+                <h1 class="auth-logo-text">Aura Planner</h1>
+            </div>
+            <p class="auth-subtitle">Không gian làm việc cá nhân riêng tư của bạn</p>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Đăng nhập</button>
+                <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Đăng ký</button>
+            </div>
+
+            <form id="auth-form" class="auth-form-layout">
+                <div class="form-group">
+                    <label for="auth-username">Tên đăng nhập</label>
+                    <input type="text" id="auth-username" class="form-input" placeholder="Nhập tên đăng nhập..." required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Mật khẩu</label>
+                    <input type="password" id="auth-password" class="form-input" placeholder="Nhập mật khẩu..." required autocomplete="current-password">
+                </div>
+                
+                <div class="auth-error-msg hidden" id="auth-error-text">Sai mật khẩu, vui lòng thử lại!</div>
+
+                <button class="btn btn-primary auth-submit-btn" type="submit" id="auth-submit-btn">
+                    <span id="auth-btn-text">Đăng nhập</span>
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                </button>
+            </form>
+            <div id="auth-loading-spinner" class="auth-spinner hidden">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Đang xử lý...
+            </div>
+        </div>
+    </div>
+
     <!-- ================= 1. HOME LANDING VIEW ================= -->
     <div id="home-view" class="landing-container">
         <header class="landing-header">
@@ -110,6 +147,9 @@
                     <i class="fa-solid fa-upload"></i> Import Backup
                 </button>
                 <input type="file" id="import-file-input" style="display: none;" accept=".json">
+                <button class="btn btn-danger" id="logout-btn-calendar" style="background: rgba(244, 63, 94, 0.08); border-color: rgba(244, 63, 94, 0.15); color: var(--accent-rose); margin-top: 0.5rem; justify-content: center;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
+                </button>
             </div>
         </aside>
 
@@ -177,9 +217,12 @@
                 <i class="fa-solid fa-briefcase logo-icon" style="color: var(--accent-blue); font-size: 1.5rem;"></i>
                 <h1 class="logo-text" style="font-size: 1.5rem;">Weekly Work Planner</h1>
             </div>
-            <div class="planner-header-right">
+            <div class="planner-header-right" style="display: flex; gap: 0.5rem;">
                 <button class="btn" id="work-home-btn">
                     <i class="fa-solid fa-house"></i> Go to Home
+                </button>
+                <button class="btn btn-danger" id="logout-btn-work" style="background: rgba(244, 63, 94, 0.08); border-color: rgba(244, 63, 94, 0.15); color: var(--accent-rose); justify-content: center;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
                 </button>
             </div>
         </header>

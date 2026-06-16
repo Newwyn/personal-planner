@@ -34,6 +34,8 @@ let state = {
         saturday: [],
         sunday: []
     },
+    userSession: null, // Holds { username, password } if logged in
+    lastUpdated: 0, // Timestamp for sync comparisons
     pomodoro: {
         timeLeft: 1500, // 25 minutes
         durationWork: 1500,
@@ -81,10 +83,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial view rendering
     switchView(state.activeView);
+    
+    // Check user authentication and start database sync
+    checkUserSessionOnStart();
 });
 
 // --- Local Storage Sync ---
 function saveStateToLocalStorage() {
+    state.lastUpdated = Date.now();
     const dataToSave = {
         activeView: state.activeView,
         events: state.events,
@@ -96,9 +102,15 @@ function saveStateToLocalStorage() {
         lastOpenedWeek: state.lastOpenedWeek,
         weeklyWorkAddMode: state.weeklyWorkAddMode,
         isScheduleToolsExpanded: state.isScheduleToolsExpanded,
-        weeklyWorkTasks: state.weeklyWorkTasks
+        weeklyWorkTasks: state.weeklyWorkTasks,
+        lastUpdated: state.lastUpdated
     };
     localStorage.setItem('aura_planner_state', JSON.stringify(dataToSave));
+    
+    // Asynchronously push updates to Vercel KV cloud
+    if (state.userSession) {
+        syncWithCloud();
+    }
 }
 
 function loadStateFromLocalStorage() {
@@ -121,6 +133,7 @@ function loadStateFromLocalStorage() {
             state.weeklyWorkTasks = parsed.weeklyWorkTasks || {
                 monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
             };
+            state.lastUpdated = parsed.lastUpdated || 0;
 
             // Check if week transitioned since last opened
             if (parsed.lastOpenedWeek && parsed.lastOpenedWeek !== currentWeekStr) {
@@ -344,6 +357,11 @@ function initEventListeners() {
         document.getElementById('import-file-input').click();
     });
     document.getElementById('import-file-input').addEventListener('change', importData);
+
+    // Auth & Logout listeners
+    document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+    document.getElementById('logout-btn-calendar').addEventListener('click', handleLogout);
+    document.getElementById('logout-btn-work').addEventListener('click', handleLogout);
 }
 
 // --- Navigation Logics ---
@@ -1784,4 +1802,247 @@ function importData(e) {
     };
     reader.readAsText(file);
     e.target.value = '';
+}
+
+// --- ================== CLOUD DATA SYNC & AUTHENTICATION ================== ---
+let currentAuthTab = 'login';
+let syncIntervalId = null;
+
+function switchAuthTab(mode) {
+    currentAuthTab = mode;
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const submitBtnText = document.getElementById('auth-btn-text');
+    const errorText = document.getElementById('auth-error-text');
+
+    errorText.classList.add('hidden');
+
+    if (mode === 'login') {
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+        submitBtnText.innerText = 'Đăng nhập';
+    } else {
+        tabRegister.classList.add('active');
+        tabLogin.classList.remove('active');
+        submitBtnText.innerText = 'Tạo tài khoản';
+    }
+}
+
+// Export switchAuthTab to window so inline onclick works
+window.switchAuthTab = switchAuthTab;
+
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const usernameInput = document.getElementById('auth-username');
+    const passwordInput = document.getElementById('auth-password');
+    const errorText = document.getElementById('auth-error-text');
+    const spinner = document.getElementById('auth-loading-spinner');
+    const submitBtn = document.getElementById('auth-submit-btn');
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!username || !password) return;
+
+    errorText.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    submitBtn.disabled = true;
+
+    try {
+        const response = await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: currentAuthTab,
+                username,
+                password
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Đã xảy ra lỗi không xác định.');
+        }
+
+        if (currentAuthTab === 'register') {
+            alert('Tạo tài khoản thành công! Bây giờ bạn có thể đăng nhập.');
+            switchAuthTab('login');
+            passwordInput.value = '';
+            spinner.classList.add('hidden');
+            submitBtn.disabled = false;
+        } else {
+            // Login successful
+            state.userSession = { username, password };
+            localStorage.setItem('aura_planner_session', JSON.stringify(state.userSession));
+            
+            // Apply loaded cloud data if it exists
+            if (result.data) {
+                applyCloudState(result.data);
+            }
+
+            document.getElementById('auth-overlay').classList.add('hidden');
+            passwordInput.value = '';
+            usernameInput.value = '';
+            spinner.classList.add('hidden');
+            submitBtn.disabled = false;
+
+            // Trigger view redraws
+            switchView(state.activeView);
+            startBackgroundSync();
+            
+            // Initial save to make sure everything matches
+            saveStateToLocalStorage();
+        }
+
+    } catch (err) {
+        console.error("Auth Error:", err);
+        errorText.innerText = err.message;
+        errorText.classList.remove('hidden');
+        spinner.classList.add('hidden');
+        submitBtn.disabled = false;
+    }
+}
+
+function handleLogout() {
+    if (confirm("Bạn có chắc chắn muốn đăng xuất khỏi tài khoản của mình?")) {
+        state.userSession = null;
+        localStorage.removeItem('aura_planner_session');
+        stopBackgroundSync();
+
+        // Clear local planner state to default
+        state.events = [];
+        state.tasks = [];
+        state.habits = [];
+        state.scratchpad = '';
+        state.weeklyWorkTasks = {
+            monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
+        };
+        state.lastUpdated = 0;
+        localStorage.removeItem('aura_planner_state');
+        document.getElementById('scratchpad').value = '';
+
+        // Show Auth overlay
+        document.getElementById('auth-overlay').classList.remove('hidden');
+    }
+}
+
+async function syncWithCloud() {
+    if (!state.userSession) return;
+
+    try {
+        const response = await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'sync',
+                username: state.userSession.username,
+                password: state.userSession.password,
+                clientState: {
+                    activeView: state.activeView,
+                    events: state.events,
+                    tasks: state.tasks,
+                    habits: state.habits,
+                    scratchpad: state.scratchpad,
+                    selectedWorkPlannerDay: state.selectedWorkPlannerDay,
+                    weeklyWorkFilter: state.weeklyWorkFilter,
+                    lastOpenedWeek: state.lastOpenedWeek,
+                    weeklyWorkAddMode: state.weeklyWorkAddMode,
+                    isScheduleToolsExpanded: state.isScheduleToolsExpanded,
+                    weeklyWorkTasks: state.weeklyWorkTasks,
+                    lastUpdated: state.lastUpdated
+                }
+            })
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+            if (result.status === 'updated_client') {
+                console.log("[Sync] Cloud data is newer. Applying to client...");
+                applyCloudState(result.data);
+            } else {
+                console.log("[Sync] Local data pushed successfully to cloud.");
+            }
+        }
+    } catch (err) {
+        console.warn("[Sync] Cloud sync failed (offline or local server):", err);
+    }
+}
+
+function applyCloudState(cloudState) {
+    state.events = cloudState.events || [];
+    state.tasks = cloudState.tasks || [];
+    state.habits = cloudState.habits || [];
+    state.scratchpad = cloudState.scratchpad || '';
+    state.selectedWorkPlannerDay = cloudState.selectedWorkPlannerDay || 'monday';
+    state.weeklyWorkFilter = cloudState.weeklyWorkFilter || 'all';
+    state.lastOpenedWeek = cloudState.lastOpenedWeek || '';
+    state.weeklyWorkAddMode = cloudState.weeklyWorkAddMode || 'ai';
+    state.isScheduleToolsExpanded = cloudState.isScheduleToolsExpanded || false;
+    state.weeklyWorkTasks = cloudState.weeklyWorkTasks || {
+        monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
+    };
+    state.lastUpdated = cloudState.lastUpdated || Date.now();
+
+    // Save locally
+    const dataToSave = {
+        activeView: state.activeView,
+        events: state.events,
+        tasks: state.tasks,
+        habits: state.habits,
+        scratchpad: state.scratchpad,
+        selectedWorkPlannerDay: state.selectedWorkPlannerDay,
+        weeklyWorkFilter: state.weeklyWorkFilter,
+        lastOpenedWeek: state.lastOpenedWeek,
+        weeklyWorkAddMode: state.weeklyWorkAddMode,
+        isScheduleToolsExpanded: state.isScheduleToolsExpanded,
+        weeklyWorkTasks: state.weeklyWorkTasks,
+        lastUpdated: state.lastUpdated
+    };
+    localStorage.setItem('aura_planner_state', JSON.stringify(dataToSave));
+
+    // Update UI elements
+    document.getElementById('scratchpad').value = state.scratchpad;
+    if (state.activeView === 'calendar') {
+        renderApp();
+    } else if (state.activeView === 'work-planner') {
+        renderWeeklyWorkPlanner();
+    }
+}
+
+function checkUserSessionOnStart() {
+    const sessionData = localStorage.getItem('aura_planner_session');
+    if (sessionData) {
+        try {
+            state.userSession = JSON.parse(sessionData);
+            document.getElementById('auth-overlay').classList.add('hidden');
+            
+            // Trigger initial sync to pull any updates
+            syncWithCloud();
+            startBackgroundSync();
+        } catch (e) {
+            console.error("Invalid session format:", e);
+            localStorage.removeItem('aura_planner_session');
+            document.getElementById('auth-overlay').classList.remove('hidden');
+        }
+    } else {
+        document.getElementById('auth-overlay').classList.remove('hidden');
+    }
+}
+
+function startBackgroundSync() {
+    stopBackgroundSync();
+    // Sync with cloud every 30 seconds
+    syncIntervalId = setInterval(syncWithCloud, 30000);
+
+    // Also sync immediately when browser tab gains focus (e.g. user opens phone app)
+    window.addEventListener('focus', syncWithCloud);
+}
+
+function stopBackgroundSync() {
+    if (syncIntervalId) {
+        clearInterval(syncIntervalId);
+        syncIntervalId = null;
+    }
+    window.removeEventListener('focus', syncWithCloud);
 }
