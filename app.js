@@ -108,7 +108,7 @@ function saveStateToLocalStorage() {
     localStorage.setItem('aura_planner_state', JSON.stringify(dataToSave));
     
     // Asynchronously push updates to Vercel KV cloud
-    if (state.userSession) {
+    if (state.userSession && !state.userSession.isLocalOnly) {
         syncWithCloud();
     }
 }
@@ -1897,6 +1897,26 @@ async function handleAuthSubmit(e) {
 
     } catch (err) {
         console.error("Auth Error:", err);
+        
+        // Fallback to offline mode if Vercel KV is not configured or server is unreachable/offline
+        if (err.message.includes("KV environment variables") || err.message.includes("Failed to fetch") || err.message.includes("NetworkError")) {
+            console.log("[Auth] Vercel KV not configured or server unreachable. Logging in locally.");
+            alert("Hệ thống đồng bộ đám mây chưa được kết nối hoặc đang offline. Đã chuyển sang chế độ Cục bộ (Offline).\nDữ liệu của bạn sẽ được lưu trên trình duyệt này.");
+            
+            state.userSession = { username, password, isLocalOnly: true };
+            localStorage.setItem('aura_planner_session', JSON.stringify(state.userSession));
+            
+            document.getElementById('auth-overlay').classList.add('hidden');
+            passwordInput.value = '';
+            usernameInput.value = '';
+            spinner.classList.add('hidden');
+            submitBtn.disabled = false;
+
+            switchView(state.activeView);
+            saveStateToLocalStorage();
+            return;
+        }
+        
         errorText.innerText = err.message;
         errorText.classList.remove('hidden');
         spinner.classList.add('hidden');
@@ -1928,7 +1948,7 @@ function handleLogout() {
 }
 
 async function syncWithCloud() {
-    if (!state.userSession) return;
+    if (!state.userSession || state.userSession.isLocalOnly) return;
 
     try {
         const response = await fetch('/api/sync', {
@@ -2018,8 +2038,10 @@ function checkUserSessionOnStart() {
             document.getElementById('auth-overlay').classList.add('hidden');
             
             // Trigger initial sync to pull any updates
-            syncWithCloud();
-            startBackgroundSync();
+            if (state.userSession && !state.userSession.isLocalOnly) {
+                syncWithCloud();
+                startBackgroundSync();
+            }
         } catch (e) {
             console.error("Invalid session format:", e);
             localStorage.removeItem('aura_planner_session');

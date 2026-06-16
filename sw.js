@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aura-planner-cache-v1';
+const CACHE_NAME = 'aura-planner-cache-v2';
 const ASSETS = [
   './',
   './index.html',

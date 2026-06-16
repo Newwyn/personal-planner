@@ -3,11 +3,25 @@ const crypto = require('crypto');
 
 // Helper function to call Vercel KV REST API using native fetch
 async function callKV(commandArray) {
-    const url = process.env.KV_REST_API_URL;
-    const token = process.env.KV_REST_API_TOKEN;
+    let url = process.env.KV_REST_API_URL;
+    let token = process.env.KV_REST_API_TOKEN;
 
     if (!url || !token) {
-        throw new Error("Vercel KV environment variables are not configured in this deployment.");
+        // Fallback: Parse REDIS_URL if available (for marketplace Redis integrations)
+        const redisUrl = process.env.REDIS_URL;
+        if (redisUrl) {
+            try {
+                const parsedUrl = new URL(redisUrl);
+                url = `https://${parsedUrl.hostname}`;
+                token = parsedUrl.password || parsedUrl.username;
+            } catch (e) {
+                console.error("Failed to parse REDIS_URL:", e);
+            }
+        }
+    }
+
+    if (!url || !token) {
+        throw new Error("Vercel KV environment variables (or REDIS_URL) are not configured in this deployment.");
     }
 
     const response = await fetch(url, {
