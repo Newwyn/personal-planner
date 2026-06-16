@@ -69,6 +69,16 @@ module.exports = async (req, res) => {
         return;
     }
 
+    if (req.method === 'GET') {
+        const debugInfo = {
+            KV_REST_API_URL: process.env.KV_REST_API_URL || null,
+            UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || null,
+            REDIS_URL: process.env.REDIS_URL ? process.env.REDIS_URL.replace(/:[^:@]+@/, ':***@') : null,
+            envKeys: Object.keys(process.env).filter(k => k.includes("KV") || k.includes("REDIS") || k.includes("URL"))
+        };
+        return res.status(200).json(debugInfo);
+    }
+
     if (req.method !== 'POST') {
         return res.status(405).json({ success: false, message: 'Method Not Allowed' });
     }
