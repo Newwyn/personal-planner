@@ -35,6 +35,7 @@ personal-planner/
 ├── index.html         # Giao diện chính của ứng dụng
 ├── styles.css         # Hệ thống CSS Responsive phong cách Glassmorphism
 ├── app.js             # Logic xử lý trạng thái (State), sự kiện & âm thanh Web Audio
+├── package.json       # Khai báo thư viện (dependencies) cho môi trường Node.js
 ├── manifest.json      # Tệp cấu hình ứng dụng PWA (Tên, màu sắc, biểu tượng)
 ├── sw.js              # Service Worker tối ưu bộ nhớ cache offline
 ├── icon-192.png       # Biểu tượng ứng dụng kích thước 192x192px
@@ -51,6 +52,7 @@ personal-planner/
 3. **Vanilla JavaScript (ES6+)**: Xử lý logic nghiệp vụ và đồng bộ Local Storage không cần cơ sở dữ liệu cồng kềnh.
 4. **Web Audio API**: Phát âm thanh hiệu ứng nhấn nút và chuông báo Pomodoro trực tiếp từ code, không cần tải file âm thanh ngoài.
 5. **Service Worker & Cache Storage**: Đảm bảo app tải tức thì và chạy offline 100%.
+6. **Node.js (Serverless API & Redis Client)**: API đồng bộ dữ liệu sử dụng Vercel Serverless Function, tự động nhận dạng kết nối REST (Vercel KV) hoặc TCP truyền thống (qua thư viện `redis` bằng biến `REDIS_URL`).
 
 ---
 
@@ -92,6 +94,9 @@ personal-planner/
 1. Truy cập [vercel.com](https://vercel.com) và đăng ký/đăng nhập bằng tài khoản GitHub của bạn.
 2. Nhấn nút **Add New...** $\rightarrow$ chọn **Project**.
 3. Tại danh sách repository, tìm `personal-planner` và nhấn **Import**.
-4. Giữ nguyên toàn bộ cấu hình mặc định (vì đây là dự án HTML/JS thuần) và nhấn **Deploy**.
-5. Trong vòng 10 giây, Vercel sẽ cung cấp cho bạn một đường link HTTPS miễn phí (ví dụ: `https://personal-planner-xxx.vercel.app`).
-6. Dùng điện thoại truy cập vào link đó để trải nghiệm và cài đặt ứng dụng PWA!
+4. Giữ nguyên cấu hình mặc định và nhấn **Deploy**.
+5. Sau khi deploy thành công, bạn cần kết nối cơ sở dữ liệu để đồng bộ tài khoản:
+   - **Cách 1 (Vercel KV - Khuyên dùng)**: Vào dự án trên Vercel $\rightarrow$ chọn tab **Storage** $\rightarrow$ chọn **KV** $\rightarrow$ nhấn **Connect**.
+   - **Cách 2 (Redis Cloud hoặc Upstash bên ngoài)**: Kết nối database Redis và cấu hình biến môi trường `REDIS_URL` trong Project Settings.
+6. Sau khi kết nối database, bạn truy cập tab **Deployments** $\rightarrow$ nhấn nút **3 chấm** ở bản build mới nhất $\rightarrow$ chọn **Redeploy** để áp dụng.
+7. Dùng điện thoại hoặc máy tính khác truy cập vào link HTTPS của bạn để trải nghiệm đồng bộ!
