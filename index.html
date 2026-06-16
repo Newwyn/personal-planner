@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aura Planner - Your Personal Productivity Universe</title>
+    
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- iOS meta tags & icons -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Aura">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <link rel="stylesheet" href="styles.css">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- ================= 1. HOME LANDING VIEW ================= -->
+    <div id="home-view" class="landing-container">
+        <header class="landing-header">
+            <h1 class="landing-logo"><i class="fa-solid fa-wand-magic-sparkles"></i> Aura Planner</h1>
+            <p class="landing-subtitle">Welcome to your private productivity sanctuary. Choose a space to focus on.</p>
+        </header>
+
+        <main class="landing-grid">
+            <!-- Card 1: Calendar Dashboard -->
+            <div class="landing-card glass-panel" id="nav-calendar-card">
+                <div class="card-icon-wrapper purple-glow">
+                    <i class="fa-regular fa-calendar-days"></i>
+                </div>
+                <h2 class="card-title">Aura Calendar</h2>
+                <p class="card-desc">Your ultimate scheduling dashboard. Plan weeks, log goals, follow habits, and deep-work with a focus timer.</p>
+                <button class="btn btn-primary card-btn">Enter Space <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+
+            <!-- Card 2: Weekly Work Planner -->
+            <div class="landing-card glass-panel" id="nav-work-card">
+                <div class="card-icon-wrapper blue-glow">
+                    <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <h2 class="card-title">Weekly Work Planner</h2>
+                <p class="card-desc">Your daily work & shift planner. A lightweight, side-by-side 7-day checklist to structure and conquer your weekly tasks.</p>
+                <button class="btn card-btn" style="border-color: var(--accent-blue); color: var(--accent-blue);">Enter Space <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= 2. CALENDAR DASHBOARD VIEW ================= -->
+    <div id="calendar-view" class="app-container hidden">
+        <!-- Sidebar Dashboard -->
+        <aside class="sidebar glass-panel">
+            <div class="logo-section" style="justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fa-solid fa-wand-magic-sparkles logo-icon"></i>
+                    <span class="logo-text" style="font-size: 1.25rem;">Aura</span>
+                </div>
+                <button class="btn" id="calendar-home-btn" style="padding: 0.35rem 0.6rem; font-size: 0.8rem;">
+                    <i class="fa-solid fa-house"></i> Home
+                </button>
+            </div>
+
+            <!-- Pomodoro Timer Widget -->
+            <div class="widget">
+                <div class="widget-title">
+                    <i class="fa-regular fa-clock"></i> Focus Timer
+                </div>
+                <div class="pomodoro-display">
+                    <div class="timer-number" id="timer-display">25:00</div>
+                    <div class="timer-controls">
+                        <button class="btn btn-primary" id="timer-toggle-btn">
+                            <i class="fa-solid fa-play"></i> Start
+                        </button>
+                        <button class="btn" id="timer-reset-btn">
+                            <i class="fa-solid fa-rotate-right"></i> Reset
+                        </button>
+                    </div>
+                    <div class="timer-status" id="timer-status-text">Ready to Focus</div>
+                </div>
+            </div>
+
+            <!-- Habits Widget -->
+            <div class="widget">
+                <div class="widget-title">
+                    <i class="fa-solid fa-fire"></i> Daily Habits
+                </div>
+                <div class="habit-list" id="habits-container">
+                    <!-- Habits dynamically loaded -->
+                </div>
+                <form class="add-habit-form" id="add-habit-form">
+                    <input type="text" placeholder="New habit..." class="form-input" id="new-habit-input" required>
+                    <button class="btn" type="submit">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- System Actions -->
+            <div class="system-actions">
+                <button class="btn" id="export-data-btn">
+                    <i class="fa-solid fa-download"></i> Export Backup
+                </button>
+                <button class="btn" id="import-data-btn">
+                    <i class="fa-solid fa-upload"></i> Import Backup
+                </button>
+                <input type="file" id="import-file-input" style="display: none;" accept=".json">
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-workspace glass-panel">
+            <!-- Workspace Header -->
+            <header class="workspace-header">
+                <div class="calendar-nav">
+                    <button class="btn" id="prev-period-btn">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <h2 class="current-period-text" id="current-period-display">June 2026</h2>
+                    <button class="btn" id="next-period-btn">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="btn" id="today-btn">Today</button>
+                </div>
+
+                <div class="view-selector">
+                    <button class="view-btn active" data-view="month" id="view-month-btn">Month</button>
+                    <button class="view-btn" data-view="week" id="view-week-btn">Week</button>
+                    <button class="view-btn" data-view="day" id="view-day-btn">Day</button>
+                </div>
+            </header>
+
+            <!-- Calendar Dynamic Container -->
+            <div class="calendar-view-container" id="calendar-view-wrapper">
+                <!-- Month, Week, or Day grid will be injected here -->
+            </div>
+
+            <!-- Bottom Agenda and Tasks Panel -->
+            <section class="agenda-tasks-container">
+                <!-- Tasks Card -->
+                <div class="widget tasks-panel">
+                    <div class="tasks-panel-header">
+                        <h3 class="tasks-title"><i class="fa-solid fa-list-check"></i> Today's Tasks</h3>
+                        <button class="btn" id="clear-completed-btn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">Clear Done</button>
+                    </div>
+                    <div class="task-list-items" id="tasks-container">
+                        <!-- Tasks dynamically loaded -->
+                    </div>
+                    <form class="add-habit-form" id="add-task-form" style="margin-top: 1rem;">
+                        <input type="text" placeholder="Add a new task..." class="form-input" id="new-task-input" required>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fa-solid fa-plus"></i> Add
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Notes Card -->
+                <div class="widget focus-panel">
+                    <div class="widget-title">
+                        <i class="fa-regular fa-pen-to-square"></i> Scratchpad & Notes
+                    </div>
+                    <textarea class="notes-textarea" id="scratchpad" placeholder="Draft your ideas, jot down key thoughts, or plan out your goals here. Auto-saved..."></textarea>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ================= 3. WEEKLY WORK PLANNER VIEW ================= -->
+    <div id="work-planner-view" class="weekly-planner-container hidden">
+        <header class="planner-header glass-panel">
+            <div class="planner-header-left">
+                <i class="fa-solid fa-briefcase logo-icon" style="color: var(--accent-blue); font-size: 1.5rem;"></i>
+                <h1 class="logo-text" style="font-size: 1.5rem;">Weekly Work Planner</h1>
+            </div>
+            <div class="planner-header-right">
+                <button class="btn" id="work-home-btn">
+                    <i class="fa-solid fa-house"></i> Go to Home
+                </button>
+            </div>
+        </header>
+
+        <!-- Split screen container -->
+        <main class="weekly-planner-split">
+            <!-- Left panel: Day selection cards -->
+            <section class="weekly-days-sidebar" id="weekly-days-sidebar">
+                <!-- 7 days dynamically loaded here -->
+            </section>
+
+            <!-- Right panel: Todo list detail for selected day -->
+            <section class="weekly-day-details glass-panel" id="weekly-day-details">
+                <!-- Detailed workspace injected here -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Event Modal (Create / Edit) -->
+    <div class="modal-overlay" id="event-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title-text">Create Event</h3>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <form id="event-form">
+                <input type="hidden" id="event-id-input">
+                <div class="form-group">
+                    <label for="event-title-input">Title</label>
+                    <input type="text" id="event-title-input" class="form-input" placeholder="e.g. Brainstorming session" required>
+                </div>
+                <div class="form-group">
+                    <label for="event-date-input">Date</label>
+                    <input type="date" id="event-date-input" class="form-input" required>
+                </div>
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label for="event-start-time">Start Time</label>
+                        <input type="time" id="event-start-time" class="form-input" value="09:00">
+                    </div>
+                    <div>
+                        <label for="event-end-time">End Time</label>
+                        <input type="time" id="event-end-time" class="form-input" value="10:00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="event-category-select">Category</label>
+                    <select id="event-category-select" class="select-input">
+                        <option value="work">Work (Blue)</option>
+                        <option value="personal">Personal (Purple)</option>
+                        <option value="health">Health & Body (Green)</option>
+                        <option value="learning">Learning & Growth (Amber)</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" type="button" id="event-delete-btn" style="background: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.3); color: var(--accent-rose); display: none;">Delete</button>
+                    <button class="btn" type="button" id="event-cancel-btn">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Day Events Mobile Modal (for viewing/managing events on a selected day) -->
+    <div class="modal-overlay" id="day-events-mobile-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title" id="mobile-day-events-title">Sự kiện trong ngày</h3>
+                <button class="modal-close" id="mobile-day-events-close-btn">&times;</button>
+            </div>
+            <div class="mobile-events-list" id="mobile-day-events-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Dynamically filled with event items -->
+            </div>
+            <div class="modal-footer" style="margin-top: 0; justify-content: space-between;">
+                <button class="btn btn-primary" id="mobile-add-event-btn" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-plus"></i> Thêm sự kiện mới
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logic Script -->
+    <script src="app.js"></script>
+</body>
+</html>
